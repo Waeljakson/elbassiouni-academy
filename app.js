@@ -11,7 +11,11 @@ $('#signupForm').onsubmit=async e=>{e.preventDefault();setAuthMsg('جارٍ إن
 $('#logoutBtn').onclick=()=>supabase.auth.signOut(); $('#menuBtn').onclick=()=>$('.sidebar').classList.toggle('open');
 function setAuthMsg(t){$('#authMessage').textContent=t;$('#authMessage').classList.remove('hidden')}function arError(t){return t.includes('Invalid login')?'البريد الإلكتروني أو كلمة المرور غير صحيحة.':t}
 
-supabase.auth.onAuthStateChange((_e,session)=>session?boot(session.user):showAuth());
+supabase.auth.onAuthStateChange((_e, session) => {
+  setTimeout(() => {
+    session ? boot(session.user) : showAuth();
+  }, 0);
+});
 async function boot(user){const {data,error}=await supabase.from('profiles').select('*').eq('id',user.id).single();if(error){setAuthMsg('تعذر تحميل صلاحيات الحساب.');return}profile=data;$('#authView').classList.add('hidden');$('#appView').classList.remove('hidden');$('#userName').textContent=profile.full_name||user.email;$('#userInitial').textContent=(profile.full_name||'م')[0];$('#userRole').textContent=roleNames[profile.role];buildNav();navigate('dashboard')}
 function showAuth(){$('#appView').classList.add('hidden');$('#authView').classList.remove('hidden');profile=null}
 const navByRole={teacher:[['dashboard','⌂','نظرة عامة'],['students','♙','الطلاب'],['attendance','✓','الحضور'],['grades','◇','الدرجات'],['payments','□','الاشتراكات والملزمة'],['expenses','↙','المصروفات'],['users','⚙','الحسابات']],secretary:[['dashboard','⌂','نظرة عامة'],['students','♙','الطلاب'],['attendance','✓','الحضور'],['grades','◇','الدرجات']],student:[['dashboard','⌂','ملخصي'],['my-attendance','✓','حضوري'],['my-grades','◇','درجاتي'],['my-payments','□','المدفوعات']],guardian:[['dashboard','⌂','ملخص الأبناء'],['my-attendance','✓','الحضور'],['my-grades','◇','الدرجات'],['my-payments','□','المدفوعات']]};
