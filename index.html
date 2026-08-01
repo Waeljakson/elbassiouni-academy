@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6d28d9">
+  <title>مجموعة البسيوني | علم النفس والفلسفة والمنطق</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="orb orb-one"></div><div class="orb orb-two"></div>
+  <section id="authView" class="auth-shell">
+    <div class="brand-panel">
+      <div class="brand-mark">ب</div>
+      <span class="eyebrow">منظومة تعليمية ذكية</span>
+      <h1>مجموعة البسيوني</h1>
+      <p>لعلم النفس والفلسفة والمنطق</p>
+      <div class="teacher-line">الأستاذ / محمد إبراهيم بسيوني</div>
+      <div class="feature-grid">
+        <article><b>حضور دقيق</b><span>متابعة يومية ونِسَب تلقائية</span></article>
+        <article><b>درجات واضحة</b><span>تقدم الطالب في الاختبارات</span></article>
+        <article><b>حسابات آمنة</b><span>صلاحيات مستقلة لكل مستخدم</span></article>
+      </div>
+    </div>
+    <div class="auth-card glass">
+      <div class="tabs"><button class="active" data-auth-tab="login">تسجيل الدخول</button><button data-auth-tab="signup">إنشاء حساب</button></div>
+      <form id="loginForm" class="stack">
+        <h2>أهلًا بعودتك</h2><p class="muted">أدخل بيانات حسابك للوصول إلى لوحتك.</p>
+        <label>البريد الإلكتروني<input id="loginEmail" type="email" required placeholder="name@example.com"></label>
+        <label>كلمة المرور<input id="loginPassword" type="password" required minlength="6" placeholder="••••••••"></label>
+        <button class="primary" type="submit">دخول إلى المنصة</button>
+      </form>
+      <form id="signupForm" class="stack hidden">
+        <h2>طلب حساب جديد</h2><p class="muted">بعد التسجيل يربط المعلم الحساب بالدور والطالب المناسب.</p>
+        <label>الاسم الكامل<input id="signupName" required></label>
+        <label>البريد الإلكتروني<input id="signupEmail" type="email" required></label>
+        <label>كلمة المرور<input id="signupPassword" type="password" minlength="6" required></label>
+        <button class="primary" type="submit">إنشاء الحساب</button>
+      </form>
+      <div id="authMessage" class="message hidden"></div>
+    </div>
+  </section>
+
+  <div id="appView" class="app-shell hidden">
+    <aside class="sidebar glass">
+      <div class="mini-brand"><div class="brand-mark small">ب</div><div><b>مجموعة البسيوني</b><small>المنصة التعليمية</small></div></div>
+      <nav id="nav"></nav>
+      <button id="logoutBtn" class="logout">تسجيل الخروج</button>
+    </aside>
+    <main>
+      <header class="topbar">
+        <button id="menuBtn" class="icon-btn">☰</button>
+        <div><span id="pageEyebrow" class="eyebrow">لوحة التحكم</span><h2 id="pageTitle">نظرة عامة</h2></div>
+        <div class="profile-chip"><span id="userInitial">م</span><div><b id="userName">المستخدم</b><small id="userRole">—</small></div></div>
+      </header>
+      <div id="content" class="content"></div>
+    </main>
+  </div>
+  <div id="toast" class="toast hidden"></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
