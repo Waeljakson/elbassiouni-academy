@@ -181,143 +181,398 @@ async function navigate(page){
 
 window.goPage=navigate;
 
-const count=async tableName=>{
-  const{count:result}=await supabase.from(tableName).select('*',{count:'exact',head:true});
-  return result||0;
-};
-
-async function dashboard(){
-  if(['student','guardian'].includes(profile.role))return familyDashboard();
-
-  const[studentCount,attendanceCount,gradeCount]=await Promise.all([
-    count('students'),
-    count('attendance'),
-    count('grades')
-  ]);
-
-  let financial='—';
-
-  if(profile.role==='teacher'){
-    const{data}=await supabase.from('payments').select('amount_paid');
-    financial=(data||[]).reduce((total,row)=>total+Number(row.amount_paid||0),0).toLocaleString('ar-EG')+' ج.م';
-  }
-
-  content.innerHTML=`
-    <section class="stats">
-      <article class="stat"><span>إجمالي الطلاب</span><b>${studentCount}</b><i>قاعدة الطلاب</i></article>
-      <article class="stat"><span>سجلات الحضور</span><b>${attendanceCount}</b><i>متابعة مستمرة</i></article>
-      <article class="stat"><span>الدرجات المسجلة</span><b>${gradeCount}</b><i>اختبارات قصيرة</i></article>
-      <article class="stat">
-        <span>${profile.role==='teacher'?'إجمالي المحصل':'صلاحية الحساب'}</span>
-        <b style="font-size:22px">${profile.role==='teacher'?financial:'تشغيلية'}</b>
-        <i>${roleNames[profile.role]}</i>
-      </article>
-    </section>
-    <section class="grid-2">
-      <div class="panel">
-        <h3>مركز الإدارة</h3>
-        <p class="muted">ابدأ بإضافة المواد والطلاب وربط كل طالب بالمادة، ثم سجل الحضور والدرجات.</p>
-        <button class="primary" onclick="window.goPage('students')">إدارة الطلاب</button>
-      </div>
-      <div class="panel">
-        <h3>خصوصية البيانات</h3>
-        <p class="muted">الصلاحيات مطبقة داخل قاعدة البيانات.</p>
-      </div>
-    </section>`;
-}
+let currentStudents=[];
 
 window.deleteStudent=async function(id,name){
   if(profile.role!=='teacher'){
-    toast('حذف الطلاب متاح للمعلم فقط.');
+    toast('حذف الطلاب متاح للمعلم فقط');
     return;
   }
 
-  if(!confirm(`هل تريد حذف الطالب "${name}"؟ سيتم حذف سجلاته المرتبطة أيضًا.`))return;
+  const confirmed=confirm(
+    `هل تريد حذف الطالب "${name}"؟ سيتم حذف سجلاته المرتبطة أيضًا.`
+  );
 
-  const{error}=await supabase.from('students').delete().eq('id',id);
+  if(!confirmed)return;
+
+  const{error}=await supabase
+    .from('students')
+    .delete()
+    .eq('id',id);
 
   if(error){
-    toast(arError(error.message));
+    toast(error.message);
     return;
   }
 
-  toast('تم حذف الطالب بنجاح.');
+  toast('تم حذف الطالب');
+  navigate('students');
+};
+
+window.editStudent=async function(id){
+  const student=currentStudents.find(
+    item=>item.id===id
+  );
+
+  if(!student){
+    toast('تعذر العثور على الطالب');
+    return;
+  }
+
+  const full_name=prompt(
+    'اسم الطالب',
+    student.full_name
+  );
+
+  if(full_name===null||!full_name.trim())return;
+
+  const grade_level=prompt(
+    'الصف',
+    student.grade_level||''
+  );
+
+  if(grade_level===null||!grade_level.trim())return;
+
+  const phone=prompt(
+    'رقم موبايل الطالب',
+    student.phone||''
+  );
+
+  if(phone===null)return;
+
+  const parent_phone=prompt(
+    'رقم موبايل ولي الأمر',
+    student.parent_phone||''
+  );
+
+  if(parent_phone===null)return;
+
+  const notes=prompt(
+    'ملاحظات',
+    student.notes||''
+  );
+
+  if(notes===null)return;
+
+  const{error}=await supabase
+    .from('students')
+    .update({
+      full_name:full_name.trim(),
+      grade_level:grade_level.trim(),
+      phone:phone.trim()||null,
+      parent_phone:parent_phone.trim()||null,
+      notes:notes.trim()||null
+    })
+    .eq('id',id);
+
+  if(error){
+    toast(error.message);
+    return;
+  }
+
+  toast('تم تعديل بيانات الطالب');
   navigate('students');
 };
 
 async function students(){
   const[
-    {data:studentData,error:studentError},
-    {data:subjectData,error:subjectError}
+    {data:students,error:studentsError},
+    {data:subjects,error:subjectsError}
   ]=await Promise.all([
-    supabase.from('students').select('*').order('created_at',{ascending:false}),
-    supabase.from('subjects').select('*').order('name')
+    supabase
+      .from('students')
+      .select('*')
+      .order('created_at',{
+        ascending:false
+      }),
+
+    supabase
+      .from('subjects')
+      .select('*')
+      .order('name')
   ]);
 
-  if(studentError||subjectError){
-    content.innerHTML='<div class="empty">تعذر تحميل بيانات الطلاب.</div>';
+  if(studentsError||subjectsError){
+    content.innerHTML=`
+      <div class="empty">
+        تعذر تحميل بيانات الطلاب
+      </div>
+    `;
+
     return;
   }
 
-  const studentList=studentData||[];
-  const subjectList=subjectData||[];
+  currentStudents=students||[];
 
-  const rows=studentList.map(student=>({
-    ...student,
-    delete_action:profile.role==='teacher'
-      ?`<button class="small-btn" onclick="window.deleteStudent('${student.id}','${escapeAttribute(student.full_name)}')">حذف</button>`
-      :'—'
-  }));
+  const management=currentStudents.length
+    ?`
+      <div
+        style="
+          display:grid;
+          gap:10px;
+          margin:14px 0 18px;
+        "
+      >
+        ${currentStudents.map(student=>`
+          <div
+            style="
+              display:flex;
+              align-items:center;
+              justify-content:space-between;
+              flex-wrap:wrap;
+              gap:10px;
+              padding:12px;
+              border:1px solid #e6dcff;
+              border-radius:12px;
+              background:#faf8ff;
+            "
+          >
+            <div>
+              <strong>
+                ${escapeHtml(student.full_name)}
+              </strong>
+
+              <div
+                style="
+                  color:#777;
+                  font-size:13px;
+                  margin-top:4px;
+                "
+              >
+                ${escapeHtml(student.grade_level||'بدون صف')}
+                —
+                ${escapeHtml(student.phone||'بدون هاتف')}
+              </div>
+            </div>
+
+            <div
+              style="
+                display:flex;
+                gap:8px;
+              "
+            >
+              <button
+                type="button"
+                class="small-btn"
+                onclick="window.editStudent('${student.id}')"
+              >
+                تعديل
+              </button>
+
+              ${
+                profile.role==='teacher'
+                  ?`
+                    <button
+                      type="button"
+                      class="small-btn"
+                      style="
+                        background:#fee2e2;
+                        color:#b91c1c;
+                        border-color:#fecaca;
+                      "
+                      onclick="window.deleteStudent(
+                        '${student.id}',
+                        '${escapeAttribute(student.full_name)}'
+                      )"
+                    >
+                      حذف
+                    </button>
+                  `
+                  :''
+              }
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `
+    :'';
 
   content.innerHTML=`
     <section class="grid-2">
       <div class="panel">
         <div class="panel-head">
-          <h3>الطلاب</h3>
-          <span>${studentList.length} طالب</span>
+          <h3>إدارة الطلاب</h3>
+          <span>
+            ${currentStudents.length} طالب
+          </span>
         </div>
+
+        ${management}
+
         ${table(
-          rows,
-          ['full_name','grade_level','phone','parent_phone','joined_on','delete_action'],
-          ['الاسم','الصف','هاتف الطالب','هاتف ولي الأمر','تاريخ الالتحاق','إجراء']
+          currentStudents,
+          [
+            'full_name',
+            'grade_level',
+            'phone',
+            'parent_phone',
+            'joined_on'
+          ],
+          [
+            'الاسم',
+            'الصف',
+            'هاتف الطالب',
+            'هاتف ولي الأمر',
+            'تاريخ الالتحاق'
+          ]
         )}
       </div>
 
       <div class="panel">
         <h3>إضافة طالب</h3>
-        <form id="studentForm" class="form-grid">
-          <label>اسم الطالب<input name="full_name" required></label>
-          <label>الصف<input name="grade_level" required></label>
-          <label>رقم موبايل الطالب<input name="phone" type="tel" required placeholder="01xxxxxxxxx"></label>
-          <label>رقم موبايل ولي الأمر<input name="parent_phone" type="tel" required placeholder="01xxxxxxxxx"></label>
-          <label class="wide">ملاحظات<textarea name="notes"></textarea></label>
-          <button class="primary wide">حفظ الطالب</button>
+
+        <form
+          id="studentForm"
+          class="form-grid"
+        >
+          <label>
+            اسم الطالب
+
+            <input
+              name="full_name"
+              required
+            >
+          </label>
+
+          <label>
+            الصف
+
+            <input
+              name="grade_level"
+              required
+            >
+          </label>
+
+          <label>
+            رقم موبايل الطالب
+
+            <input
+              name="phone"
+              type="tel"
+              required
+              placeholder="01xxxxxxxxx"
+            >
+          </label>
+
+          <label>
+            رقم موبايل ولي الأمر
+
+            <input
+              name="parent_phone"
+              type="tel"
+              required
+              placeholder="01xxxxxxxxx"
+            >
+          </label>
+
+          <label class="wide">
+            ملاحظات
+
+            <textarea name="notes"></textarea>
+          </label>
+
+          <button class="primary wide">
+            حفظ الطالب
+          </button>
         </form>
 
         <hr>
 
         <h3>إضافة مادة</h3>
-        <form id="subjectForm" class="form-grid">
-          <label class="wide">اسم المادة<input name="name" required placeholder="علم النفس"></label>
-          <button class="primary wide">حفظ المادة</button>
+
+        <form
+          id="subjectForm"
+          class="form-grid"
+        >
+          <label class="wide">
+            اسم المادة
+
+            <input
+              name="name"
+              required
+              placeholder="علم النفس"
+            >
+          </label>
+
+          <button class="primary wide">
+            حفظ المادة
+          </button>
         </form>
 
         <hr>
 
         <h3>ربط طالب بمادة</h3>
-        <form id="enrollForm" class="form-grid">
-          <label>الطالب<select name="student_id" required>${opts(studentList,'full_name')}</select></label>
-          <label>المادة<select name="subject_id" required>${opts(subjectList,'name')}</select></label>
-          <label>الاشتراك الشهري<input type="number" name="monthly_fee" value="0" min="0"></label>
-          <label>رسوم الملزمة<input type="number" name="booklet_fee" value="0" min="0"></label>
-          <button class="primary wide">حفظ الربط</button>
+
+        <form
+          id="enrollForm"
+          class="form-grid"
+        >
+          <label>
+            الطالب
+
+            <select
+              name="student_id"
+              required
+            >
+              ${opts(
+                currentStudents,
+                'full_name'
+              )}
+            </select>
+          </label>
+
+          <label>
+            المادة
+
+            <select
+              name="subject_id"
+              required
+            >
+              ${opts(
+                subjects,
+                'name'
+              )}
+            </select>
+          </label>
+
+          <label>
+            الاشتراك الشهري
+
+            <input
+              type="number"
+              name="monthly_fee"
+              value="0"
+              min="0"
+            >
+          </label>
+
+          <label>
+            رسوم الملزمة
+
+            <input
+              type="number"
+              name="booklet_fee"
+              value="0"
+              min="0"
+            >
+          </label>
+
+          <button class="primary wide">
+            حفظ الربط
+          </button>
         </form>
       </div>
-    </section>`;
+    </section>
+  `;
 
-  $('#studentForm').onsubmit=e=>submitForm(e,'students');
-  $('#subjectForm').onsubmit=e=>submitForm(e,'subjects');
-  $('#enrollForm').onsubmit=e=>submitForm(e,'enrollments');
+  $('#studentForm').onsubmit=event=>
+    submitForm(event,'students');
+
+  $('#subjectForm').onsubmit=event=>
+    submitForm(event,'subjects');
+
+  $('#enrollForm').onsubmit=event=>
+    submitForm(event,'enrollments');
 }
 
 async function attendance(){
